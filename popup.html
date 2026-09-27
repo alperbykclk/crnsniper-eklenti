@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>CRNSniper</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="ui.css">
+  <style>
+    body {
+      width: 360px;
+      min-height: 200px;
+      overflow-x: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      border-top: 3px solid var(--track);
+      padding: 12px 16px 14px;
+    }
+
+    /* Başlık: marka işareti + CRNSniper */
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .wordmark {
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+    .wordmark span {
+      color: var(--track);
+    }
+
+    /* Durum ekranları (yükleniyor / giriş / lisans / hata) */
+    .screen {
+      min-height: 248px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px 0 8px;
+    }
+    .screen-title {
+      font-size: 1.75rem;
+      line-height: 1;
+    }
+    .screen p {
+      color: var(--ink-2);
+      font-size: 0.875rem;
+      line-height: 1.55;
+    }
+    .screen .note {
+      color: var(--ink-3);
+      font-size: 0.75rem;
+    }
+    .btn-block {
+      width: 100%;
+    }
+    .screen .btn {
+      margin-top: 4px;
+    }
+    .text-link {
+      align-self: flex-start;
+      color: var(--ink-2);
+      font-size: 0.8125rem;
+      text-decoration: underline;
+      text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+      text-underline-offset: 0.2em;
+      transition: text-decoration-color 150ms ease, color 150ms ease;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .text-link:hover {
+        color: var(--ink);
+        text-decoration-color: currentColor;
+      }
+    }
+
+    /* Geri bildirim bloğu: gölge yok, tonu 3px üst çizgi taşır */
+    .notice {
+      background: var(--paper-2);
+      border-top: 3px solid var(--out);
+      padding: 14px 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .notice-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--out);
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+    .notice-title .icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Yükleniyor: kulvar çizgisinde ilerleyen kısa tartan parça */
+    .lap {
+      position: relative;
+      height: 3px;
+      background: var(--rule);
+      overflow: hidden;
+    }
+    .lap span {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 34%;
+      background: var(--track);
+      animation: lap 1.1s var(--ease-in-out) infinite;
+    }
+    @keyframes lap {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(300%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .lap span {
+        animation: none;
+        width: 100%;
+        opacity: 0.5;
+      }
+    }
+
+    /* CRN girişleri */
+    .labels-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 14px 0 6px;
+      color: var(--ink-2);
+    }
+    .labels-grid h2 {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .labels-grid h2[title] {
+      cursor: help;
+    }
+    .labels-grid .icon {
+      width: 14px;
+      height: 14px;
+    }
+
+    #crn-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .crn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .crn-row input {
+      width: 100%;
+      height: 40px;
+      padding: 0 10px;
+      background: var(--paper);
+      border: 2px solid var(--field-ink);
+      border-radius: 0;
+      color: var(--ink);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.15rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      caret-color: var(--track);
+      outline: none;
+      transition: border-color 150ms ease;
+    }
+    .crn-row input:focus,
+    .crn-row input:focus-visible {
+      border-color: var(--track);
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .controls-grid button {
+      display: grid;
+      place-items: center;
+      height: 32px;
+      background: transparent;
+      border: 2px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+      border-radius: 0;
+      color: var(--ink-2);
+      cursor: pointer;
+      transition:
+        transform 160ms var(--ease-out),
+        border-color 150ms ease,
+        color 150ms ease;
+    }
+    .controls-grid button:active {
+      transform: scale(0.97);
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .controls-grid button:hover {
+        border-color: var(--ink);
+        color: var(--ink);
+      }
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .actions .btn {
+      padding: 0 8px;
+    }
+    #btn-bot svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* DERS AL sonucu: kâğıt gölgesi blok, üst çizgi sonuca göre renk alır */
+    #result {
+      margin-top: 12px;
+      background: var(--paper-2);
+      border-top: 3px solid var(--ok);
+      padding: 8px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.8125rem;
+      line-height: 1.45;
+      font-variant-numeric: tabular-nums;
+      animation: result-in 220ms var(--ease-out);
+    }
+    #result:has(.err) {
+      border-top-color: var(--out);
+    }
+    #result:has(.ok):has(.err) {
+      border-top-color: var(--run);
+    }
+    #result > div {
+      position: relative;
+      padding-left: 20px;
+      color: var(--ink);
+    }
+    #result > div::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.18em;
+      width: 14px;
+      height: 14px;
+      -webkit-mask: var(--i-check) center / contain no-repeat;
+      mask: var(--i-check) center / contain no-repeat;
+      background: var(--ok);
+    }
+    #result > .err::before {
+      -webkit-mask-image: var(--i-x);
+      mask-image: var(--i-x);
+      background: var(--out);
+    }
+    #result > .ok {
+      font-weight: 600;
+    }
+    @keyframes result-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #result { animation: none; }
+    }
+
+    .info-bar {
+      display: flex;
+      justify-content: center;
+      align-items: baseline;
+      gap: 12px;
+      margin-top: 12px;
+      font-size: 0.75rem;
+    }
+    .info-bar span {
+      color: var(--ink-2);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .info-bar a {
+      color: var(--out);
+      font-weight: 600;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .info-bar a:hover {
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+      }
+    }
+
+    .shortcut {
+      margin-top: 6px;
+      text-align: center;
+      color: var(--ink-3);
+    }
+  </style>
+</head>
+<body>
+  <header class="head">
+    <span class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/></svg>
+    </span>
+    <h1 class="display wordmark">CRN<span>Sniper</span></h1>
+  </header>
+
+  <!-- Yükleniyor -->
+  <div id="screen-loading" class="screen" role="status">
+    <div class="lap" aria-hidden="true"><span></span></div>
+    <p>Lisansınız kontrol ediliyor...</p>
+  </div>
+
+  <!-- Hesap bağlı değil -->
+  <div id="screen-login" class="screen hidden">
+    <h2 class="display screen-title">Hesap bağlı değil</h2>
+    <p>Lütfen kullanıma başlamak için hesabınızı bağlayın.</p>
+    <button id="btn-web-login" class="btn btn-primary btn-block">Hesabımı Bağla</button>
+    <p class="note">Site yeni sekmede açılır. Giriş yaptığınızda eklenti kendiliğinden bağlanır.</p>
+  </div>
+
+  <!-- Lisans pasif -->
+  <div id="screen-inactive" class="screen hidden">
+    <div class="notice">
+      <h2 class="display notice-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        Lisansınız Pasif
+      </h2>
+      <p id="inactive-message"></p>
+    </div>
+    <button id="btn-dashboard" class="btn btn-primary btn-block">Öğrenci Paneli</button>
+    <a href="#" id="btn-inactive-logout" class="text-link">Farklı hesapla giriş yap</a>
+  </div>
+
+  <!-- Sunucu hatası -->
+  <div id="screen-error" class="screen hidden">
+    <div class="notice">
+      <h2 class="display notice-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></svg>
+        Sunucu hatası
+      </h2>
+      <p>Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.</p>
+    </div>
+    <a href="#" id="btn-retry" class="btn btn-line btn-block">Tekrar Dene</a>
+  </div>
+
+  <!-- Ana arayüz -->
+  <div id="screen-main" class="hidden">
+    <div class="labels-grid">
+      <h2 class="caption">As CRN</h2>
+      <h2 class="caption" title="As CRN alınamayacak durumdaysa (çakışma, önşart, kredi sınırı vb.) aynı satırdaki Yedek CRN denenir. Kontenjan doluysa As CRN denenmeye devam eder.">
+        Yedek CRN
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      </h2>
+    </div>
+
+    <div id="crn-rows"></div>
+
+    <div class="controls-grid">
+      <button id="btn-add-row" title="Satır ekle" aria-label="Satır ekle">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      </button>
+      <button id="btn-remove-row" title="Satır sil" aria-label="Satır sil">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+      </button>
+    </div>
+
+    <div class="actions">
+      <button id="btn-dersal" class="btn btn-line">DERS AL</button>
+      <button id="btn-bot" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg>
+        OTO BOT
+      </button>
+    </div>
+
+    <div id="result" class="hidden" role="status" aria-live="polite"></div>
+
+    <div class="info-bar">
+      <span id="user-email">Aktif</span>
+      <a href="#" id="btn-logout">Çıkış</a>
+    </div>
+
+    <div class="shortcut caption">KISAYOL: CTRL+SHIFT+K</div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="lib/api.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

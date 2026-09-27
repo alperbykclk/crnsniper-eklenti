@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <title>CRNSniper · Oto Bot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="icons/icon32.png">
+    <link rel="stylesheet" href="ui.css">
+    <style>
+        /* Sayfa: kulvar çizgisiz tartan zemin, pano ortada */
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 40px 16px 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .session-closed {
+            margin-top: 30vh;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.75rem;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        .stage {
+            width: 100%;
+            max-width: 640px;
+        }
+
+        /* OTO BOT paneli: siyah pano, 6px çerçeve, nesne gölgesi */
+        .app-container {
+            background: var(--board);
+            color: var(--board-ink);
+            border: 6px solid var(--board);
+            box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.55);
+        }
+
+        .board-cap {
+            color: rgb(242 242 238 / 0.7);
+        }
+
+        /* Başlık: marka + simülasyon anahtarı */
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 4px 12px;
+            padding: 6px 12px 10px;
+            border-bottom: 1px solid var(--board-2);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            font-size: 1.3rem;
+            line-height: 1;
+        }
+        .brand .mark {
+            width: 26px;
+            height: 26px;
+        }
+        .brand .mark svg {
+            width: 15px;
+            height: 15px;
+        }
+        .brand-name {
+            white-space: nowrap;
+        }
+        .brand .dim {
+            color: rgb(242 242 238 / 0.6);
+        }
+
+        .sim-toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 32px;
+            padding: 0 2px;
+            color: rgb(242 242 238 / 0.7);
+            cursor: pointer;
+            user-select: none;
+            transition: color 150ms ease;
+        }
+        .sim-toggle-wrapper input {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border: 1px solid rgb(242 242 238 / 0.6);
+            background: transparent;
+            cursor: pointer;
+            transition: background-color 150ms ease, border-color 150ms ease;
+        }
+        .sim-toggle-wrapper input:checked {
+            background: var(--digit);
+            border-color: var(--digit);
+            box-shadow: inset 0 0 0 2px var(--board);
+        }
+        .sim-toggle-wrapper input:focus-visible {
+            outline: 2px solid var(--digit);
+            outline-offset: 2px;
+        }
+        .sim-toggle-wrapper.active {
+            color: var(--digit);
+        }
+        /* Bot çalışırken mod değiştirilemez */
+        .sim-toggle-wrapper:has(input:disabled),
+        .sim-toggle-wrapper input:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .sim-toggle-wrapper:hover {
+                color: var(--board-ink);
+            }
+            .sim-toggle-wrapper.active:hover {
+                color: var(--digit);
+            }
+        }
+
+        /* Geri sayım + durum */
+        .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: end;
+            gap: 8px 16px;
+            padding: 16px 12px 14px;
+        }
+        .countdown {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.02em;
+            font-size: clamp(3rem, 9vw, 4.5rem);
+            line-height: 0.95;
+            color: var(--digit);
+            min-height: 0.95em;
+        }
+        .countdown.done.all::before {
+            content: '';
+            display: block;
+            width: 0.9em;
+            height: 0.9em;
+            -webkit-mask: var(--i-check) center / contain no-repeat;
+            mask: var(--i-check) center / contain no-repeat;
+            background: var(--digit);
+            animation: board-flip 260ms var(--ease-out);
+        }
+        .hero-sub {
+            margin-top: 8px;
+            font-size: 0.8125rem;
+            color: rgb(242 242 238 / 0.75);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .countdown.done + .hero-sub {
+            color: var(--digit);
+            font-weight: 600;
+        }
+        .hero-side {
+            text-align: right;
+        }
+        .pills {
+            margin-top: 6px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        /* Bot durumu ve ilerleme etiketleri (pill-* renkleri bot.js'ten gelir) */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            height: 26px;
+            padding: 0 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            border: 1px solid transparent;
+        }
+        #pill-status.pill-yellow {
+            border-color: rgb(242 242 238 / 0.45);
+            color: rgb(242 242 238 / 0.85);
+        }
+        #pill-status.pill-blue {
+            border-color: var(--board-ink);
+            color: var(--board-ink);
+        }
+        #pill-status.pill-green {
+            background: var(--digit);
+            border-color: var(--digit);
+            color: #151515;
+        }
+        #pill-progress {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.02em;
+            font-size: 1rem;
+            border-color: var(--board-2);
+            color: var(--digit);
+        }
+        #pill-progress.pill-green {
+            background: var(--digit);
+            border-color: var(--digit);
+            color: #151515;
+        }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+
+        @keyframes board-flip {
+            from { clip-path: inset(0 0 100% 0); transform: translateY(-35%); }
+            to { clip-path: inset(0 0 0 0); transform: translateY(0); }
+        }
+
+        /* Hedef Dersler: her satır bir kulvar */
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            border-top: 1px solid var(--board-2);
+            color: rgb(242 242 238 / 0.7);
+        }
+        #crn-count {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.02em;
+        }
+
+        .lanes-head {
+            display: grid;
+            grid-template-columns: 32px 1fr;
+            height: 24px;
+            border-bottom: 2px solid var(--lane);
+        }
+        .lanes-head .line {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 14px 0 8px;
+            border-left: 5px solid #fff;
+        }
+        .lanes-head .line::after,
+        .crn-card .lane::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: rgb(255 255 255 / 0.9);
+        }
+
+        .crn-grid {
+            --lane-h: 58px;
+            --runner-w: 10.75rem;
+        }
+        .crn-card {
+            display: grid;
+            grid-template-columns: 32px 1fr;
+            height: var(--lane-h);
+            border-bottom: 2px solid var(--lane);
+        }
+        .crn-card:last-child {
+            border-bottom: 0;
+        }
+        .crn-card .lane-no {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.35rem;
+            color: rgb(255 255 255 / 0.9);
+        }
+        .crn-card .lane {
+            position: relative;
+            border-left: 5px solid #fff;
+            overflow: hidden;
+        }
+        /* Koşucu: kulvar genişliği eksi koşucu genişliği kadar yol alır */
+        .crn-card .rail {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: calc(100% - var(--runner-w));
+            transition: transform 700ms var(--ease-in-out);
+        }
+        .crn-card.warning .rail { transform: translateX(28%); }
+        .crn-card.success .rail { transform: translateX(100%); }
+
+        .crn-card .runner {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: runner-in 300ms var(--ease-out) backwards;
+        }
+        .crn-card:nth-child(2) .runner { animation-delay: 60ms; }
+        .crn-card:nth-child(3) .runner { animation-delay: 120ms; }
+        .crn-card:nth-child(n+4) .runner { animation-delay: 180ms; }
+        @keyframes runner-in {
+            from { opacity: 0; transform: translate(-8px, -50%); }
+            to { opacity: 1; transform: translate(0, -50%); }
+        }
+
+        /* Göğüs numarası: AS / YEDEK + CRN */
+        .bib {
+            background: #fff;
+            color: #151515;
+            padding: 3px 7px 4px;
+            min-width: 4.1rem;
+            line-height: 1;
+            box-shadow: 0 2px 6px rgb(60 10 0 / 0.35);
+        }
+        .bib-kind {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 650;
+            letter-spacing: 0.05em;
+            color: #6b1f0c;
+        }
+        .crn-card .code {
+            display: block;
+            margin-top: 2px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.02em;
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+        .crn-card.error .code {
+            text-decoration: line-through 2px #9b1c10;
+        }
+
+        .tagcol {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 3px;
+            min-width: 0;
+        }
+        .crn-card .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            max-width: 15rem;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            font-weight: 650;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: 1px solid rgb(255 255 255 / 0.7);
+            color: #fff;
+        }
+        .crn-card .badge::before {
+            content: none;
+            flex-shrink: 0;
+            width: 11px;
+            height: 11px;
+            background: currentColor;
+            -webkit-mask: var(--i-check) center / contain no-repeat;
+            mask: var(--i-check) center / contain no-repeat;
+        }
+        .crn-card.warning .badge {
+            border-color: #fff;
+            font-weight: 700;
+        }
+        .crn-card.warning .badge::before {
+            content: '';
+            -webkit-mask-image: var(--i-arrow);
+            mask-image: var(--i-arrow);
+        }
+        .crn-card.success .badge {
+            background: #151515;
+            border-color: #151515;
+            color: var(--digit);
+        }
+        .crn-card.success .badge::before {
+            content: '';
+        }
+        .crn-card.error .badge {
+            background: #fff;
+            border-color: #fff;
+            color: #9b1c10;
+        }
+        .crn-card.error .badge::before {
+            content: '';
+            -webkit-mask-image: var(--i-x);
+            mask-image: var(--i-x);
+        }
+        .crn-card .badge.flip {
+            animation: board-flip 260ms var(--ease-out);
+        }
+        .crn-card .sub {
+            font-size: 0.7rem;
+            line-height: 1;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .lane-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 58px;
+            padding: 12px 16px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #fff;
+            text-align: center;
+        }
+
+        /* Zamanlayıcı: panonun içinde kâğıt şerit */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: var(--paper);
+            color: var(--ink);
+        }
+        .time-input {
+            width: 9.25rem;
+            height: 44px;
+            padding: 0 8px 0 10px;
+            background: var(--paper);
+            border: 2px solid var(--field-ink);
+            border-radius: 0;
+            color: var(--ink);
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.3rem;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.02em;
+            outline: none;
+            transition: border-color 150ms ease;
+        }
+        .time-input:focus,
+        .time-input:focus-visible {
+            border-color: var(--track);
+        }
+        .time-input::-webkit-calendar-picker-indicator {
+            opacity: 0.6;
+            cursor: pointer;
+        }
+        .time-input::-webkit-datetime-edit-hour-field:focus,
+        .time-input::-webkit-datetime-edit-minute-field:focus,
+        .time-input::-webkit-datetime-edit-second-field:focus {
+            background: var(--digit);
+            color: #151515;
+        }
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex: 1 1 18rem;
+            min-width: 0;
+        }
+        .btn-row .btn {
+            flex: 1 1 auto;
+            padding: 0 14px;
+        }
+        #row-stop {
+            flex-basis: 100%;
+        }
+
+        /* İşlem Geçmişi */
+        .log-toggle {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px 6px;
+            background: none;
+            border: 0;
+            color: rgb(242 242 238 / 0.7);
+            cursor: pointer;
+            transition: color 150ms ease;
+        }
+        .log-toggle .arrow {
+            width: 14px;
+            height: 14px;
+            transition: transform 200ms var(--ease-out);
+        }
+        .log-toggle.open .arrow {
+            transform: rotate(180deg);
+        }
+        .log-toggle:focus-visible {
+            outline-color: var(--digit);
+            outline-offset: -2px;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .log-toggle:hover { color: var(--board-ink); }
+        }
+
+        .log-body {
+            display: none;
+        }
+        .log-body.open {
+            display: block;
+        }
+        .log-body-inner {
+            max-height: 15.5rem;
+            overflow-y: auto;
+            padding: 0 12px 12px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            scrollbar-width: thin;
+            scrollbar-color: #3a3a3a transparent;
+        }
+        .log-body-inner:empty::before {
+            content: 'Başlatınca bot her adımı buraya yazar.';
+            color: rgb(242 242 238 / 0.6);
+        }
+        .log-line {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            padding: 2px 0;
+            color: rgb(242 242 238 / 0.72);
+            animation: log-in 240ms var(--ease-out);
+        }
+        .log-line::before {
+            content: '';
+            flex-shrink: 0;
+            align-self: center;
+            order: 1;
+            width: 12px;
+            height: 12px;
+            background: currentColor;
+            -webkit-mask: var(--i-arrow) center / contain no-repeat;
+            mask: var(--i-arrow) center / contain no-repeat;
+        }
+        .log-line .t {
+            order: 0;
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+            color: rgb(242 242 238 / 0.5);
+        }
+        .log-line .m {
+            order: 2;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+        .log-ok { color: var(--digit); }
+        .log-ok::before {
+            -webkit-mask-image: var(--i-check);
+            mask-image: var(--i-check);
+        }
+        .log-warn { color: #ffe08a; }
+        .log-warn::before {
+            -webkit-mask-image: var(--i-alert);
+            mask-image: var(--i-alert);
+        }
+        .log-err { color: var(--board-alert); font-weight: 600; }
+        .log-err::before {
+            -webkit-mask-image: var(--i-x);
+            mask-image: var(--i-x);
+        }
+        @keyframes log-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        .stage-note {
+            margin-top: 14px;
+            max-width: 56ch;
+            font-size: 0.8125rem;
+            line-height: 1.5;
+            color: #fff;
+        }
+
+        @media (max-width: 520px) {
+            body { padding: 16px 10px 32px; }
+            .hero { grid-template-columns: 1fr; }
+            .hero-side { text-align: left; }
+            .pills { justify-content: flex-start; }
+            .crn-grid { --runner-w: 10.25rem; }
+            .crn-card.warning .rail { transform: none; }
+            .brand { font-size: 1.15rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .crn-card .rail,
+            .log-toggle .arrow { transition: none; }
+            .crn-card .runner,
+            .log-line,
+            .crn-card .badge.flip,
+            .countdown.done.all::before,
+            .pulse { animation: none; }
+        }
+    </style>
+</head>
+<body class="track">
+    <main class="stage">
+        <div class="app-container" id="app">
+
+            <div class="header">
+                <div class="brand display">
+                    <span class="mark" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/></svg>
+                    </span>
+                    <h1 class="brand-name">CRNSniper <span class="dim">OTO BOT</span></h1>
+                </div>
+                <label class="sim-toggle-wrapper caption" id="sim-banner">
+                    <input type="checkbox" id="chk-localhost">
+                    <span>SİMÜLASYON MODU</span>
+                </label>
+            </div>
+
+            <div class="hero" id="hero-box">
+                <div>
+                    <div class="countdown" id="stat-countdown" role="timer" aria-live="off">--:--</div>
+                    <div class="hero-sub" id="hero-sub" role="status">Hedef saati ayarla ve başlat</div>
+                </div>
+                <div class="hero-side">
+                    <span class="caption board-cap">DURUM</span>
+                    <div class="pills" id="pills">
+                        <div class="pill pill-yellow" id="pill-status">Hazır</div>
+                        <div class="pill pill-blue" id="pill-progress">0 / 0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title caption">
+                <span>Hedef Dersler</span>
+                <span id="crn-count">0</span>
+            </div>
+            <div class="lanes-head track caption" aria-hidden="true">
+                <span></span>
+                <span class="line"><span>START</span><span>BİTİŞ</span></span>
+            </div>
+            <div class="crn-grid track" id="crn-list-container"></div>
+
+            <div class="controls">
+                <input type="time" id="bot-time" step="1" value="10:00:00" class="time-input" aria-label="Kayıt saati (Türkiye saati)">
+
+                <div class="btn-row" id="row-prod">
+                    <button id="btn-start" class="btn btn-primary">Zamanlayıcıyı Başlat</button>
+                    <button id="btn-start-now" class="btn btn-line">Hemen Başlat</button>
+                </div>
+
+                <div class="btn-row" id="row-sim" style="display: none;">
+                    <button id="btn-test" class="btn btn-primary">Simülasyonu Test Et</button>
+                </div>
+
+                <div class="btn-row" id="row-stop" style="display: none;">
+                    <button id="btn-stop" class="btn btn-line">Durdur</button>
+                </div>
+            </div>
+
+            <div>
+                <button class="log-toggle caption open" id="log-toggle" aria-controls="log-body">
+                    İşlem Geçmişi
+                    <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="log-body open" id="log-body">
+                    <div class="log-body-inner" id="bot-logs" role="log" aria-live="polite"></div>
+                </div>
+            </div>
+        </div>
+
+        <p class="stage-note">Bu sekmeyi kayıt bitene kadar açık bırak. Saat Türkiye saatidir ve sunucu saatine göre tutulur; bot, dolu dersleri en fazla 10 dakika yeniden dener.</p>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="lib/api.js"></script>
+    <script src="bot.js"></script>
+</body>
+</html>

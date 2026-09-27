@@ -1,0 +1,41 @@
+{
+    "manifest_version": 3,
+    "name": "CRNSniper",
+    "description": "İTÜ ders kayıtlarında kontenjan dolmadan dersleri almanızı sağlayan otomasyon sistemi.",
+    "author": "CRNSniper",
+    "version": "2.3.0",
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "permissions": [
+        "storage"
+    ],
+    "host_permissions": [
+        "https://obs.itu.edu.tr/*",
+        "https://crndoldur-web.vercel.app/*"
+    ],
+    "commands": {
+        "ders-al": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+K",
+                "mac": "Command+Shift+K"
+            },
+            "description": "Ders Al kısayolu"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": ["https://crndoldur-web.vercel.app/*"],
+            "js": ["config.js", "content.js"]
+        }
+    ]
+}
